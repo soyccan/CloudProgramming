@@ -1,8 +1,10 @@
 #include "chord.h"
 
-#include "rpcs.h"
+#include <iostream>
 
-#include <rpc/server.h>
+#include "rpc/client.h"
+#include "rpc/server.h"
+#include "rpcs.h"
 
 int main(int argc, char *argv[]) {
   std::string ip;
@@ -32,22 +34,18 @@ int main(int argc, char *argv[]) {
 
   server_p->bind("kill", []() {
     for (size_t i = 0; i < periodics.size(); i++) {
-      _LOG_DEBUG << "sending termination signal to periodic #" << i << std::endl;
-      terminated.store(true);
-
-      _LOG_DEBUG << "waiting for termination of periodic #" << i << std::endl;
-      terminated.wait(true);
+      terminated = true;
+      while (terminated)
+        ;
     }
     for (auto &p : periodics) {
       p.join();
     }
-    ready_to_exit.test_and_set();
-    ready_to_exit.notify_one();
+    ready_to_exit = true;
   });
 
-  server_p->bind("get_rpc_count", []() { return rpc_count.load(); });
-
-  ready_to_exit.wait(false);
+  while (!ready_to_exit)
+    ;
 
   std::this_thread::sleep_until(std::chrono::steady_clock::now() +
                                 std::chrono::milliseconds(3000));

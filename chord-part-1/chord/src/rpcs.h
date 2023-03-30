@@ -3,8 +3,8 @@
 
 #include "chord.h"
 
-#include <rpc/client.h>
-#include <rpc/rpc_error.h>
+#include "rpc/client.h"
+#include "rpc/rpc_error.h"
 
 #include <array>
 #include <chrono>
@@ -15,6 +15,8 @@
 #include <thread>
 #include <type_traits>
 #include <utility>
+
+#define NDEBUG
 
 #ifndef NDEBUG
 #define _LOG_DEBUG                                                             \

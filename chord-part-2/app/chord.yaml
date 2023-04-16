@@ -48,7 +48,9 @@ spec:
   volumes:
   - name: uploadserver-storage
     persistentVolumeClaim:
-      claimName: uploadserver-storage-claim
+      claimName: uploadserver-storage-leader
+  securityContext:
+    fsGroup: 1000
   affinity:
     # ensure pods land on separate hosts
     podAntiAffinity:
@@ -60,12 +62,23 @@ spec:
             values: [chord]
         topologyKey: kubernetes.io/hostname
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uploadserver-storage-leader
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: chord
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app.kubernetes.io/name: chord
@@ -116,13 +129,15 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: CHORD_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         readinessProbe:
           exec:
             command: [ls, /workdir/init.done]
-      volumes:
-      - name: uploadserver-storage
-        persistentVolumeClaim:
-          claimName: uploadserver-storage-claim
+      securityContext:
+        fsGroup: 1000
       affinity:
         # ensure pods land on separate hosts
         podAntiAffinity:
@@ -133,17 +148,15 @@ spec:
                 operator: In
                 values: [chord]
             topologyKey: kubernetes.io/hostname
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: uploadserver-storage-claim
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
+  volumeClaimTemplates:
+  - metadata:
+      name: uploadserver-storage
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
 ---
 apiVersion: v1
 kind: Service
